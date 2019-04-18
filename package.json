@@ -1,0 +1,13 @@
+{
+  "name": "zt-network-to-vultr-dns",
+  "version": "0.0.1",
+  "bin": "./bin.js",
+  "dependencies": {
+    "dotenv": "^7.0.0",
+    "is-ip": "^2.0.0",
+    "nanorequest": "^3.0.0"
+  },
+  "devDependencies": {
+    "eslint-config-standard": "^12.0.0"
+  }
+}
