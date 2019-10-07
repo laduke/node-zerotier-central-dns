@@ -8,6 +8,7 @@
     "nanorequest": "^3.0.0"
   },
   "devDependencies": {
-    "eslint-config-standard": "^12.0.0"
+    "eslint-config-standard": "^12.0.0",
+    "standard": "^14.3.1"
   }
 }

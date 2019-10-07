@@ -5,14 +5,20 @@ const Central = require('./central-api')
 const Vultr = require('./vultr')
 
 module.exports = function (opts) {
-  assert(typeof opts === 'object', `Please pass an options object.
+  assert(
+    typeof opts === 'object',
+    `Please pass an options object.
 ztNetworkId: '8056c2e21c333331'
 ztCentralToken: '0cFQMU8KrYQy6iTM' (my.zerotier.com)
 domain: 'my-cool-domain.net'
 vultrToken: 'XE99sroECwg&Ea2b6Ou'
-`)
+`
+  )
   assert(typeof opts.ztNetworkId === 'string', 'Need option: ztNetworkId')
-  assert(typeof opts.ztCentralToken === 'string', 'Need option: ztCentralToken')
+  assert(
+    typeof opts.ztCentralToken === 'string',
+    'Need option: ztCentralToken'
+  )
   assert(typeof opts.domain === 'string', 'Need option: domain')
   assert(typeof opts.vultrToken === 'string', 'Need option: vultrToken')
 
@@ -25,9 +31,7 @@ vultrToken: 'XE99sroECwg&Ea2b6Ou'
     const { body: members } = await central.getMembers(ztNetworkId)
     const { body: records } = await vultr.listRecords(domain)
 
-    const ztIpAssignments = members
-      .filter(notHidden)
-      .flatMap(membersIps)
+    const ztIpAssignments = members.filter(notHidden).flatMap(membersIps)
 
     const ztArecords = ztIpAssignments
       .filter(isIPv4)
@@ -35,9 +39,7 @@ vultrToken: 'XE99sroECwg&Ea2b6Ou'
       .map(addProp({ type: 'A' }))
       .map(addProp({ domain }))
 
-    const vtArecords = records
-      .filter(isArecord)
-      .map(addProp({ domain })) // { domain, name, type, data }
+    const vtArecords = records.filter(isArecord).map(addProp({ domain })) // { domain, name, type, data }
 
     const deleteA = toDelete(ztArecords, vtArecords)
     const createA = toCreate(ztArecords, vtArecords)
@@ -48,13 +50,15 @@ vultrToken: 'XE99sroECwg&Ea2b6Ou'
     const ztCnames = members
       .filter(notHidden) // { ...member }
       .map(getNameAndId) // { name, data }
+      .concat(members.map(getServiceNames))
+      .concat(members.map(getWildcardName))
+      .flatMap(x => x)
+      .filter(x => x.name)
       .map(cnameFQDN(domain)) // { name, data }
       .map(addProp({ domain })) // { domain, name, data }
       .map(addProp({ type: 'CNAME' })) // { type, domain, name, data }
 
-    const vtCnames = records
-      .filter(isCname)
-      .map(addProp({ domain })) // { domain, name, type, data }
+    const vtCnames = records.filter(isCname).map(addProp({ domain })) // { domain, name, type, data }
 
     const deleteC = toDelete(ztCnames, vtCnames)
     const createC = toCreate(ztCnames, vtCnames)
@@ -105,7 +109,7 @@ function sanitizeHostname (name) {
 // Vultr specific
 function cnameFQDN (domain) {
   return function (record) {
-    let { data, ...rest } = record
+    const { data, ...rest } = record
     return { data: `${data}.${domain}`, ...rest }
   }
 }
@@ -116,16 +120,41 @@ function getNameAndId (member) {
   return { data: member.nodeId, name }
 }
 
+function getWildcardName (member) {
+  const name = sanitizeHostname(member.name)
+
+  return {
+    data: member.nodeId,
+    name: `*.${name}`
+  }
+}
+
+function getServiceNames (member) {
+  const { description = '' } = member
+
+  return description.includes(';')
+    ? member.description
+      .split(';')
+      .map(x => ({
+        data: member.nodeId,
+        name: sanitizeHostname(x)
+      }))
+      .filter(x => x.name)
+    : {}
+}
+
 function getNameAndIP ({ ipAssignment, nodeId }) {
   return { name: nodeId, data: ipAssignment }
 }
 
 function membersIps (member) {
-  const { config: { ipAssignments }, nodeId } = member
-  return ipAssignments
-    .map(function (ipAssignment) {
-      return { nodeId, ipAssignment }
-    })
+  const {
+    config: { ipAssignments },
+    nodeId
+  } = member
+  return ipAssignments.map(function (ipAssignment) {
+    return { nodeId, ipAssignment }
+  })
 }
 
 function isArecord (record) {
